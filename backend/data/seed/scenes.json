@@ -1,0 +1,126 @@
+[
+  {
+    "id": "s0000000-0000-0000-0000-000000000001",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "scene_identifier": "S2B_MSIL2A_20200115_T36MZE",
+    "satellite": "Sentinel-2B",
+    "sensor": "MSI (MultiSpectral Instrument)",
+    "acquisition_date": "2020-01-15",
+    "cloud_cover": 3.2,
+    "spatial_resolution": 10.0,
+    "raster_path": "backend/data/imagery/mau_forest_2020_composite.tif",
+    "red_band_path": "backend/data/imagery/mau_forest_2020_b04.tif",
+    "nir_band_path": "backend/data/imagery/mau_forest_2020_b08.tif",
+    "swir_band_path": "backend/data/imagery/mau_forest_2020_b11.tif",
+    "metadata": {
+      "processing_level": "Level-2A (Bottom of Atmosphere Reflectance)",
+      "orbit_number": 86,
+      "relative_orbit": "R035",
+      "sun_elevation_deg": 62.4,
+      "sun_azimuth_deg": 128.6,
+      "data_source": "Copernicus Open Access Hub / ESA Sentinel-2 Archive",
+      "notes": "Pre-disturbance baseline scene with intact dense indigenous canopy."
+    }
+  },
+  {
+    "id": "s0000000-0000-0000-0000-000000000002",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "scene_identifier": "S2A_MSIL2A_20250120_T36MZE",
+    "satellite": "Sentinel-2A",
+    "sensor": "MSI (MultiSpectral Instrument)",
+    "acquisition_date": "2025-01-20",
+    "cloud_cover": 4.8,
+    "spatial_resolution": 10.0,
+    "raster_path": "backend/data/imagery/mau_forest_2025_composite.tif",
+    "red_band_path": "backend/data/imagery/mau_forest_2025_b04.tif",
+    "nir_band_path": "backend/data/imagery/mau_forest_2025_b08.tif",
+    "swir_band_path": "backend/data/imagery/mau_forest_2025_b11.tif",
+    "metadata": {
+      "processing_level": "Level-2A (Bottom of Atmosphere Reflectance)",
+      "orbit_number": 129,
+      "relative_orbit": "R035",
+      "sun_elevation_deg": 61.8,
+      "sun_azimuth_deg": 130.1,
+      "data_source": "Copernicus Open Access Hub / ESA Sentinel-2 Archive",
+      "notes": "Post-disturbance comparison scene showing localized canopy reduction."
+    }
+  },
+  {
+    "id": "s0000000-0000-0000-0000-000000000003",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "scene_identifier": "S2A_MSIL2A_20240410_T36MZE_HIGHCLOUD",
+    "satellite": "Sentinel-2A",
+    "sensor": "MSI (MultiSpectral Instrument)",
+    "acquisition_date": "2024-04-10",
+    "cloud_cover": 46.5,
+    "spatial_resolution": 10.0,
+    "raster_path": "backend/data/imagery/mau_forest_2024_highcloud.tif",
+    "red_band_path": "backend/data/imagery/mau_forest_2024_highcloud_b04.tif",
+    "nir_band_path": "backend/data/imagery/mau_forest_2024_highcloud_b08.tif",
+    "swir_band_path": null,
+    "metadata": {
+      "processing_level": "Level-2A",
+      "cloud_cover_percent": 46.5,
+      "data_source": "Copernicus Open Access Hub",
+      "notes": "High cloud cover test scene configured for validation gate failure demonstration."
+    }
+  },
+  {
+    "id": "s0000000-0000-0000-0000-000000000004",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "scene_identifier": "S2B_MSIL2A_20200210_T36MZE_STABLE",
+    "satellite": "Sentinel-2B",
+    "sensor": "MSI (MultiSpectral Instrument)",
+    "acquisition_date": "2020-02-10",
+    "cloud_cover": 2.1,
+    "spatial_resolution": 10.0,
+    "raster_path": "backend/data/imagery/mau_forest_2020_stable.tif",
+    "red_band_path": "backend/data/imagery/mau_forest_2020_stable_b04.tif",
+    "nir_band_path": "backend/data/imagery/mau_forest_2020_stable_b08.tif",
+    "swir_band_path": null,
+    "metadata": {
+      "processing_level": "Level-2A",
+      "cloud_cover_percent": 2.1,
+      "data_source": "Copernicus Open Access Hub",
+      "notes": "Short temporal delta test scene showing stable canopy without significant change."
+    }
+  },
+  {
+    "id": "s0000000-0000-0000-0000-000000000005",
+    "aoi_id": "a0000000-0000-0000-0000-000000000002",
+    "scene_identifier": "S2B_MSIL2A_20190718_T32UNC",
+    "satellite": "Sentinel-2B",
+    "sensor": "MSI (MultiSpectral Instrument)",
+    "acquisition_date": "2019-07-18",
+    "cloud_cover": 1.8,
+    "spatial_resolution": 10.0,
+    "raster_path": "backend/data/imagery/harz_2019_composite.tif",
+    "red_band_path": "backend/data/imagery/harz_2019_b04.tif",
+    "nir_band_path": "backend/data/imagery/harz_2019_b08.tif",
+    "swir_band_path": null,
+    "metadata": {
+      "processing_level": "Level-2A",
+      "data_source": "ESA Copernicus Sentinel-2",
+      "notes": "Harz National Park baseline scene."
+    }
+  },
+  {
+    "id": "s0000000-0000-0000-0000-000000000006",
+    "aoi_id": "a0000000-0000-0000-0000-000000000002",
+    "scene_identifier": "S2A_MSIL2A_20240722_T32UNC",
+    "satellite": "Sentinel-2A",
+    "sensor": "MSI (MultiSpectral Instrument)",
+    "acquisition_date": "2024-07-22",
+    "cloud_cover": 3.5,
+    "spatial_resolution": 10.0,
+    "raster_path": "backend/data/imagery/harz_2024_composite.tif",
+    "red_band_path": "backend/data/imagery/harz_2024_b04.tif",
+    "nir_band_path": "backend/data/imagery/harz_2024_b08.tif",
+    "swir_band_path": null,
+    "metadata": {
+      "processing_level": "Level-2A",
+      "data_source": "ESA Copernicus Sentinel-2",
+      "notes": "Harz National Park post-drought dieback scene."
+    }
+  }
+]

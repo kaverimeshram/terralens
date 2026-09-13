@@ -1,0 +1,68 @@
+[
+  {
+    "id": "p0000000-0000-0000-0000-000000000001",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Nessuit Settlement Zone",
+    "population": 4200,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [35.870, -0.390],
+          [35.900, -0.390],
+          [35.900, -0.370],
+          [35.870, -0.370],
+          [35.870, -0.390]
+        ]
+      ]
+    },
+    "metadata": {
+      "primary_livelihood": "Smallholder Agriculture & Agroforestry",
+      "county": "Nakuru"
+    }
+  },
+  {
+    "id": "p0000000-0000-0000-0000-000000000002",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Likia Community Area",
+    "population": 3100,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [35.930, -0.365],
+          [35.955, -0.365],
+          [35.955, -0.345],
+          [35.930, -0.345],
+          [35.930, -0.365]
+        ]
+      ]
+    },
+    "metadata": {
+      "primary_livelihood": "Farming & Community Forest Association",
+      "county": "Nakuru"
+    }
+  },
+  {
+    "id": "p0000000-0000-0000-0000-000000000003",
+    "aoi_id": "a0000000-0000-0000-0000-000000000002",
+    "name": "Schierke Municipality Zone",
+    "population": 720,
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [10.650, 51.770],
+          [10.680, 51.770],
+          [10.680, 51.755],
+          [10.650, 51.755],
+          [10.650, 51.770]
+        ]
+      ]
+    },
+    "metadata": {
+      "state": "Saxony-Anhalt",
+      "sector": "Tourism & Forestry"
+    }
+  }
+]

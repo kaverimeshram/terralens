@@ -1,0 +1,152 @@
+[
+  {
+    "id": "i0000000-0000-0000-0000-000000000001",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Nessuit Forest Ranger Station",
+    "type": "Ranger Station",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [35.885, -0.382]
+    },
+    "metadata": {
+      "agency": "Kenya Forest Service (KFS)",
+      "staff_count": 14,
+      "radio_frequency_mhz": 154.2
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000002",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Likia Forest Outpost",
+    "type": "Ranger Station",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [35.942, -0.354]
+    },
+    "metadata": {
+      "agency": "Kenya Forest Service (KFS)",
+      "staff_count": 8
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000003",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Kaptunga Fire Watchtower",
+    "type": "Watchtower",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [35.871, -0.345]
+    },
+    "metadata": {
+      "elevation_m": 2680,
+      "optical_range_km": 25.0
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000004",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Enapuiyapui Water Treatment & Intake Facility",
+    "type": "Water Infrastructure",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [35.918, -0.412]
+    },
+    "metadata": {
+      "capacity_m3_day": 18000,
+      "serves": "Rift Valley Regional Water Supply"
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000005",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Njoro-Mau Narok Primary Highway",
+    "type": "Primary Road",
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [35.830, -0.330],
+        [35.865, -0.360],
+        [35.910, -0.395],
+        [35.960, -0.440]
+      ]
+    },
+    "metadata": {
+      "surface": "Asphalt",
+      "lanes": 2,
+      "jurisdiction": "KENHA"
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000006",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Nessuit Access & Logging Track",
+    "type": "Access Road",
+    "geometry": {
+      "type": "LineString",
+      "coordinates": [
+        [35.875, -0.370],
+        [35.890, -0.390],
+        [35.905, -0.405]
+      ]
+    },
+    "metadata": {
+      "surface": "Unpaved/Gravel",
+      "seasonal_passability": "4WD Only"
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000007",
+    "aoi_id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Olenguruone Power Substation",
+    "type": "Power Infrastructure",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [35.845, -0.430]
+    },
+    "metadata": {
+      "voltage_kv": 132,
+      "operator": "KPLC"
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000008",
+    "aoi_id": "a0000000-0000-0000-0000-000000000002",
+    "name": "Brocken Narrow-Gauge Railway Station",
+    "type": "Railway Station",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [10.618, 51.799]
+    },
+    "metadata": {
+      "elevation_m": 1125,
+      "operator": "Harzer Schmalspurbahnen"
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000009",
+    "aoi_id": "a0000000-0000-0000-0000-000000000002",
+    "name": "Torfhaus Communications & Radar Tower",
+    "type": "Communications Tower",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [10.538, 51.804]
+    },
+    "metadata": {
+      "height_m": 130
+    }
+  },
+  {
+    "id": "i0000000-0000-0000-0000-000000000010",
+    "aoi_id": "a0000000-0000-0000-0000-000000000002",
+    "name": "Oderteich Historic Dam & Reservoir",
+    "type": "Dam/Reservoir",
+    "geometry": {
+      "type": "Point",
+      "coordinates": [10.575, 51.765]
+    },
+    "metadata": {
+      "constructed": 1722,
+      "heritage_status": "UNESCO World Heritage"
+    }
+  }
+]

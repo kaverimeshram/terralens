@@ -1,0 +1,50 @@
+[
+  {
+    "id": "a0000000-0000-0000-0000-000000000001",
+    "name": "Eastern Mau Forest Reserve",
+    "description": "Eastern Mau Forest Reserve, Rift Valley, Kenya (EPSG:4326). A critical tropical montane ecosystem, water tower, and biodiversity corridor experiencing land use pressure and forest canopy changes.",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [35.820, -0.450],
+          [35.980, -0.450],
+          [35.980, -0.320],
+          [35.820, -0.320],
+          [35.820, -0.450]
+        ]
+      ]
+    },
+    "bounding_box": {
+      "min_lon": 35.820,
+      "min_lat": -0.450,
+      "max_lon": 35.980,
+      "max_lat": -0.320,
+      "center": [35.900, -0.385]
+    }
+  },
+  {
+    "id": "a0000000-0000-0000-0000-000000000002",
+    "name": "Harz National Park (Dieback Zone)",
+    "description": "Harz National Park, Lower Saxony / Saxony-Anhalt, Germany (EPSG:4326). European montane spruce forest monitoring area subjected to drought stress, severe storms, and bark beetle (Ips typographus) dieback.",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [10.540, 51.740],
+          [10.720, 51.740],
+          [10.720, 51.860],
+          [10.540, 51.860],
+          [10.540, 51.740]
+        ]
+      ]
+    },
+    "bounding_box": {
+      "min_lon": 10.540,
+      "min_lat": 51.740,
+      "max_lon": 10.720,
+      "max_lat": 51.860,
+      "center": [10.630, 51.800]
+    }
+  }
+]
