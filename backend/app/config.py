@@ -1,10 +1,12 @@
 import os
 from typing import List
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, ConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(env_file=".env", extra="ignore")
+
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     LOG_LEVEL: str = "INFO"
@@ -39,10 +41,6 @@ class Settings(BaseSettings):
     DEFAULT_NDVI_CHANGE_THRESHOLD: float = -0.20
     MIN_CHANGE_AREA_M2: float = 500.0
     SPATIAL_SEARCH_RADIUS_METERS: float = 1000.0
-
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
 
 
 settings = Settings()

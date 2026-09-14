@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Activity,
   Layers,
@@ -6,7 +6,6 @@ import {
   Satellite,
   ShieldCheck,
   CheckCircle2,
-  AlertCircle,
   Database,
   Radio,
   ExternalLink,
@@ -16,7 +15,7 @@ import { AOI, GeoJSONFeatureCollection, HealthStatus, SatelliteScene } from "./t
 
 export default function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [, setLoading] = useState<boolean>(true);
   const [aois, setAois] = useState<AOI[]>([]);
   const [selectedAoi, setSelectedAoi] = useState<AOI | null>(null);
   const [scenes, setScenes] = useState<SatelliteScene[]>([]);
