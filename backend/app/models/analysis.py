@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import Column, String, Text, Numeric, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
@@ -30,6 +31,12 @@ class AnalysisRun(Base):
     after_scene = relationship("SatelliteScene", foreign_keys=[after_scene_id])
     change_polygons = relationship("ChangePolygon", back_populates="analysis_run", cascade="all, delete-orphan")
 
+    @property
+    def total_change_area_ha(self) -> float:
+        if self.total_change_area_m2 is not None:
+            return float(self.total_change_area_m2) / 10000.0
+        return 0.0
+
 
 class ChangePolygon(Base):
     __tablename__ = "change_polygons"
@@ -45,3 +52,21 @@ class ChangePolygon(Base):
 
     # Relationships
     analysis_run = relationship("AnalysisRun", back_populates="change_polygons")
+
+    @property
+    def area_ha(self) -> float:
+        if self.area_m2 is not None:
+            return float(self.area_m2) / 10000.0
+        return 0.0
+
+    @property
+    def mean_ndvi_change(self) -> float:
+        return float(self.change_value) if self.change_value is not None else 0.0
+
+    @property
+    def change_type(self) -> str:
+        if self.change_value is not None and float(self.change_value) <= -0.20:
+            return "detected vegetation decrease"
+        elif self.change_value is not None and float(self.change_value) >= 0.20:
+            return "detected vegetation increase"
+        return "unchanged"

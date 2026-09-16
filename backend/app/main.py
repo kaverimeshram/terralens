@@ -7,6 +7,7 @@ from app.api.health import router as health_router
 from app.api.aois import router as aois_router
 from app.api.scenes import router as scenes_router
 from app.api.infrastructure import router as infra_router
+from app.api.analysis import router as analysis_router
 
 # Setup logging
 logging.basicConfig(
@@ -45,6 +46,8 @@ app.include_router(health_router, prefix="/api")
 app.include_router(aois_router, prefix="/api")
 app.include_router(scenes_router, prefix="/api")
 app.include_router(infra_router, prefix="/api")
+app.include_router(analysis_router, prefix="/api")
+
 
 
 @app.get("/")
