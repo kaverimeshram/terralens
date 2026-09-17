@@ -18,6 +18,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import get_async_db
 from app.gis.analysis_service import run_ndvi_change_analysis
 from app.gis.validation import GISValidationError
+from app.gis.spatial_service import (
+    find_nearby_infrastructure,
+    analyze_infrastructure_proximity,
+    analyze_population_proximity,
+    run_spatial_intersection,
+    get_change_area_summary,
+    validate_aoi_containment,
+    get_analysis_spatial_summary,
+)
 
 router = APIRouter(prefix="/analysis", tags=["Analysis"])
 
@@ -267,3 +276,175 @@ async def list_analysis_runs(
             }
         )
     return {"count": len(items), "analysis_runs": items}
+
+
+@router.get("/{analysis_id}/nearby-infrastructure")
+async def get_nearby_infrastructure(
+    analysis_id: uuid.UUID,
+    radius_m: float = Query(1000.0, gt=0, le=100000.0, description="Search proximity radius in meters (default: 1000.0 m)"),
+    format: Optional[str] = Query("json", description="Response format: 'json' or 'geojson'"),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Query PostGIS for infrastructure within `radius_m` of detected vegetation-change polygons.
+
+    Uses real PostGIS ST_DWithin and ST_Distance calculations on WGS84 geography.
+    Returns results sorted by actual geodesic distance.
+    """
+    try:
+        analysis_proximity = await analyze_infrastructure_proximity(
+            db=db,
+            analysis_id=analysis_id,
+            radius_m=radius_m,
+        )
+
+        if format == "geojson":
+            features = []
+            for item in analysis_proximity["infrastructure"]:
+                geom = item.get("geometry")
+                props = {k: v for k, v in item.items() if k != "geometry"}
+                features.append(
+                    {
+                        "type": "Feature",
+                        "id": item["id"],
+                        "geometry": geom,
+                        "properties": props,
+                    }
+                )
+
+            return {
+                "type": "FeatureCollection",
+                "analysis_id": str(analysis_id),
+                "radius_m": radius_m,
+                "count": len(features),
+                "associated_change_area_m2": analysis_proximity["associated_change_area_m2"],
+                "associated_change_area_ha": analysis_proximity["associated_change_area_ha"],
+                "features": features,
+            }
+
+        return analysis_proximity
+    except GISValidationError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Spatial Query Error: {str(e)}")
+
+
+@router.get("/{analysis_id}/spatial-summary")
+async def get_spatial_summary(
+    analysis_id: uuid.UUID,
+    radius_m: float = Query(1000.0, gt=0, le=100000.0, description="Proximity radius in meters (default: 1000.0 m)"),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Retrieve comprehensive PostGIS spatial summary for an analysis run.
+
+    Includes:
+    - Change area metrics & aggregations (total area, min/max/mean polygon area)
+    - AOI containment validation (verifying polygons lie within AOI)
+    - Infrastructure proximity metrics (closest asset, asset type breakdown)
+    - Population zone context (intersecting/nearby population)
+    """
+    try:
+        summary = await get_analysis_spatial_summary(
+            db=db,
+            analysis_id=analysis_id,
+            radius_m=radius_m,
+        )
+        return summary
+    except GISValidationError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Spatial Summary Error: {str(e)}")
+
+
+@router.get("/{analysis_id}/population-context")
+async def get_population_context(
+    analysis_id: uuid.UUID,
+    radius_m: float = Query(1000.0, gt=0, le=100000.0, description="Search proximity radius in meters (default: 1000.0 m)"),
+    format: Optional[str] = Query("json", description="Response format: 'json' or 'geojson'"),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Query PostGIS for population zones intersecting or within `radius_m` of change polygons."""
+    try:
+        pop_context = await analyze_population_proximity(
+            db=db,
+            analysis_id=analysis_id,
+            radius_m=radius_m,
+        )
+
+        if format == "geojson":
+            features = []
+            for zone in pop_context["zones"]:
+                geom = zone.get("geometry")
+                props = {k: v for k, v in zone.items() if k != "geometry"}
+                features.append(
+                    {
+                        "type": "Feature",
+                        "id": zone["id"],
+                        "geometry": geom,
+                        "properties": props,
+                    }
+                )
+
+            return {
+                "type": "FeatureCollection",
+                "analysis_id": str(analysis_id),
+                "radius_m": radius_m,
+                "count": len(features),
+                "intersecting_zones_count": pop_context["intersecting_zones_count"],
+                "total_intersecting_population": pop_context["total_intersecting_population"],
+                "features": features,
+            }
+
+        return pop_context
+    except GISValidationError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Population Context Error: {str(e)}")
+
+
+@router.get("/{analysis_id}/spatial-intersection")
+async def get_spatial_intersection(
+    analysis_id: uuid.UUID,
+    layer: str = Query("infrastructure", description="Target layer: 'infrastructure', 'population_zones', or 'aoi'"),
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Compute exact PostGIS ST_Intersects and ST_Intersection between change polygons and layer."""
+    try:
+        result = await run_spatial_intersection(
+            db=db,
+            analysis_id=analysis_id,
+            layer=layer,
+        )
+        return result
+    except GISValidationError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Spatial Intersection Error: {str(e)}")
+
+
+@router.get("/{analysis_id}/aoi-containment")
+async def get_aoi_containment(
+    analysis_id: uuid.UUID,
+    db: AsyncSession = Depends(get_async_db),
+):
+    """Validate whether all change polygons for the analysis run are topologically contained within AOI."""
+    try:
+        result = await validate_aoi_containment(
+            db=db,
+            analysis_id=analysis_id,
+        )
+        return result
+    except GISValidationError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AOI Containment Error: {str(e)}")
+
