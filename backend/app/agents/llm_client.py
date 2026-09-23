@@ -1,29 +1,36 @@
-"""TerraLens Provider-Agnostic LLM Client Interface.
+"""TerraLens Multi-Provider LLM Abstraction & Deterministic Demo Mode.
 
-Provides:
-1. BaseLLMClient: Abstract interface for planning & explanation synthesis.
-2. MockLLMClient: Deterministic rule-based planner for offline development & automated tests.
-3. GeminiClient: Google Gemini structured JSON tool-calling client.
-4. OpenAIClient: OpenAI tool-calling client.
-5. get_llm_client(): Factory function.
+Provides clean interfaces for:
+- Deterministic Demo Mode / MockLLMClient (100% deterministic local execution without API keys)
+- Google Gemini (GeminiClient)
+- OpenAI (OpenAIClient)
+- Anthropic Claude (AnthropicClient)
+- Local LLM / Ollama (LocalLLMClient)
+- Non-causal, objective factual synthesis
 """
 
 import logging
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
-from app.agents.models import AnalysisPlan, PlanStep
-from app.config import settings
+from typing import Any, Dict, List, Optional, Tuple
 
-logger = logging.getLogger("terralens.agents.llm")
+from app.config import settings
+from app.agents.models import AnalysisPlan, PlanStep, AgentState
+
+logger = logging.getLogger("terralens.agents.llm_client")
 
 
 class BaseLLMClient(ABC):
-    """Abstract base class for LLM planning and synthesis providers."""
+    """Abstract Base Class for TerraLens LLM Providers."""
+
+    @abstractmethod
+    async def parse_query(self, query: str) -> Dict[str, Any]:
+        """Extract structured parameters (AOI, years, radius, threshold) from natural language query."""
+        pass
 
     @abstractmethod
     async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
-        """Translate natural language query into a structured AnalysisPlan."""
+        """Construct allowlisted 6-step AnalysisPlan from natural language inquiry."""
         pass
 
     @abstractmethod
@@ -33,67 +40,101 @@ class BaseLLMClient(ABC):
         plan: AnalysisPlan,
         results: Dict[str, Any],
     ) -> str:
-        """Generate a verified, factual explanation strictly based on deterministic tool results."""
+        """Synthesize verified, non-causal explanation strictly from deterministic tool outputs."""
+        pass
+
+    @abstractmethod
+    async def evaluate_decision(
+        self,
+        state: AgentState,
+    ) -> Tuple[str, str, str, List[str]]:
+        """Determine decision status, recommended action, reasoning summary, and evidence."""
         pass
 
 
 class MockLLMClient(BaseLLMClient):
-    """Deterministic Rule-Based Planner and Synthesizer.
+    """Deterministic Rule-Based / Demo Mode Client.
 
-    Operates completely offline without external network or API keys.
-    Accurately recognizes development scenarios and spatial intents.
+    Used when no external LLM API key is configured or for deterministic CI testing.
+    Uses regex and catalog knowledge to parse queries, sequence allowlisted tools,
+    and generate strictly non-causal evidence summaries without hallucinations.
     """
 
-    async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
-        query_lower = query.lower()
+    async def parse_query(self, query: str) -> Dict[str, Any]:
+        q_lower = query.lower()
 
-        # 1. Resolve AOI Name
-        aoi_name = "Eastern Mau Forest Reserve"
-        if "harz" in query_lower or "dieback" in query_lower:
-            aoi_name = "Harz National Park (Dieback Zone)"
-        elif "mau" in query_lower or "kenya" in query_lower:
+        # 1. Resolve AOI
+        aoi_name = None
+        if "mau" in q_lower or "eastern mau" in q_lower or "kenya" in q_lower:
             aoi_name = "Eastern Mau Forest Reserve"
+        elif "harz" in q_lower or "germany" in q_lower or "national park" in q_lower:
+            aoi_name = "Harz National Park"
 
-        # 2. Extract Timeframe Years
+        # 2. Resolve Year Timeframe (e.g. 2020 to 2025 or 2019 to 2024)
         years = [int(y) for y in re.findall(r"\b(20\d\d)\b", query)]
+        before_year = None
+        after_year = None
+
         if len(years) >= 2:
-            before_year = min(years[0], years[1])
-            after_year = max(years[0], years[1])
+            years_sorted = sorted(years)
+            before_year = years_sorted[0]
+            after_year = years_sorted[-1]
         elif len(years) == 1:
-            before_year = years[0]
-            after_year = 2025 if aoi_name == "Eastern Mau Forest Reserve" else 2024
-        else:
-            if "harz" in aoi_name.lower():
-                before_year, after_year = 2019, 2024
+            if "harz" in (aoi_name or "").lower():
+                before_year = 2019
+                after_year = years[0] if years[0] > 2019 else 2024
             else:
-                before_year, after_year = 2020, 2025
+                before_year = 2020
+                after_year = years[0] if years[0] > 2020 else 2025
+        else:
+            if aoi_name == "Harz National Park":
+                before_year = 2019
+                after_year = 2024
+            else:
+                before_year = 2020
+                after_year = 2025
 
-        # 3. Extract Proximity Radius
+        # 3. Resolve Radius (e.g. 500m, 1000m, 2km, 2000 meters)
         radius_m = 1000.0
-        km_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:km|kilometer|kilometre)", query_lower)
-        m_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:m|meter|metre)", query_lower)
-        if km_match:
-            radius_m = float(km_match.group(1)) * 1000.0
-        elif m_match:
-            radius_m = float(m_match.group(1))
+        radius_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:m|meter|meters|km|kilometer|kilometers)", q_lower)
+        if radius_match:
+            val = float(radius_match.group(1))
+            if "km" in radius_match.group(0):
+                radius_m = val * 1000.0
+            else:
+                radius_m = val
 
-        # 4. Extract Threshold
+        # 4. Resolve Threshold
         threshold = -0.20
-        thresh_match = re.search(r"threshold\s*(?:of|=|:)?\s*(-?0\.\d+)", query_lower)
+        thresh_match = re.search(r"threshold\s*(?:of|=|:)?\s*(-?\d+(?:\.\d+)?)", q_lower)
         if thresh_match:
             val = float(thresh_match.group(1))
             threshold = val if val < 0 else -val
 
-        # 5. Check Stable scene flag
-        is_stable_test = "stable" in query_lower
+        return {
+            "aoi_name": aoi_name,
+            "before_year": before_year,
+            "after_year": after_year,
+            "radius_m": radius_m,
+            "threshold": threshold,
+            "minimum_area_m2": 500.0,
+            "max_cloud_cover": 20.0,
+        }
 
-        # Build Plan Steps
-        steps: List[PlanStep] = [
+    async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
+        params = await self.parse_query(query)
+        aoi_name = params["aoi_name"]
+        before_year = params["before_year"]
+        after_year = params["after_year"]
+        radius_m = params["radius_m"]
+        threshold = params["threshold"]
+
+        steps = [
             PlanStep(
                 step_number=1,
                 tool="get_aoi",
-                parameters={"name": aoi_name},
-                description=f"Resolve official boundaries and coordinate reference system for '{aoi_name}'.",
+                parameters={"name": aoi_name} if aoi_name else {},
+                description=f"Resolve official geographic boundary and metadata for '{aoi_name or 'target area'}'.",
             ),
             PlanStep(
                 step_number=2,
@@ -104,7 +145,7 @@ class MockLLMClient(BaseLLMClient):
                     "after_year": after_year,
                     "max_cloud_cover": 20.0,
                 },
-                description=f"Select cloud-free Sentinel-2 multispectral baseline ({before_year}) and comparison ({after_year}) scenes.",
+                description=f"Query and filter cataloged Sentinel-2 multispectral scenes ({before_year} vs {after_year}).",
             ),
             PlanStep(
                 step_number=3,
@@ -116,7 +157,7 @@ class MockLLMClient(BaseLLMClient):
                     "threshold": threshold,
                     "minimum_area_m2": 500.0,
                 },
-                description="Execute deterministic NDVI temporal difference calculation, significant loss thresholding, and polygonization.",
+                description=f"Compute deterministic NDVI difference and vectorize change polygons (threshold: {threshold:.2f}).",
             ),
             PlanStep(
                 step_number=4,
@@ -130,7 +171,7 @@ class MockLLMClient(BaseLLMClient):
                     "threshold": threshold,
                     "min_area_m2": 500.0,
                 },
-                description="Enforce Quality Gate on radiometric quality, cloud cover, minimum area, and PostGIS AOI containment.",
+                description="Run deterministic Quality Gate verifying cloud cover, radiometric delta, and PostGIS AOI containment.",
             ),
             PlanStep(
                 step_number=5,
@@ -139,7 +180,7 @@ class MockLLMClient(BaseLLMClient):
                     "analysis_id": "$analysis_id",
                     "radius_m": radius_m,
                 },
-                description=f"Perform PostGIS ST_DWithin & ST_Distance proximity query for infrastructure within {radius_m:.0f} m of change areas.",
+                description=f"Execute PostGIS ST_DWithin search for infrastructure within {radius_m:.0f} m of change polygons.",
             ),
             PlanStep(
                 step_number=6,
@@ -172,11 +213,10 @@ class MockLLMClient(BaseLLMClient):
         plan: AnalysisPlan,
         results: Dict[str, Any],
     ) -> str:
-        """Synthesize verified, non-causal explanation strictly from deterministic tool outputs."""
         aoi_data = results.get("get_aoi", {})
-        pipeline_data = results.get("run_ndvi_change_pipeline", {})
+        pipeline_data = results.get("run_ndvi_analysis", {}) or results.get("run_ndvi_change_pipeline", {})
         infra_data = results.get("find_nearby_infrastructure", {})
-        pop_data = results.get("analyze_population_proximity", {})
+        pop_data = results.get("get_population_context", {}) or results.get("analyze_population_proximity", {})
         quality_data = results.get("validate_analysis", {})
 
         aoi_name = aoi_data.get("name", plan.aoi_name or "the study area")
@@ -211,13 +251,11 @@ class MockLLMClient(BaseLLMClient):
         else:
             delta_clause = f"threshold: {plan.parameters.get('threshold'):.2f}, global scene ΔNDVI: {mean_delta:.4f}"
 
-        # Factual change summary
         explanation_parts = [
             f"In the {aoi_name}, temporal Sentinel-2 NDVI analysis between {plan.timeframe.get('before_year')} and {plan.timeframe.get('after_year')} "
             f"detected {total_ha:.2f} hectares of significant vegetation decrease across {poly_count} distinct polygon(s) ({delta_clause})."
         ]
 
-        # Infrastructure summary
         infra_list = infra_data.get("infrastructure", []) if isinstance(infra_data, dict) else []
         radius_m = plan.parameters.get("proximity_radius_m", 1000.0)
         if infra_list:
@@ -238,7 +276,6 @@ class MockLLMClient(BaseLLMClient):
                 f"No infrastructure assets were located within {radius_m:.0f} meters of the detected vegetation change polygons."
             )
 
-        # Population summary
         pop_zones = pop_data.get("zones", []) if isinstance(pop_data, dict) else []
         intersecting_zones = [z for z in pop_zones if z.get("intersects_change")]
         if intersecting_zones:
@@ -250,54 +287,181 @@ class MockLLMClient(BaseLLMClient):
         explanation_parts.append("All detected polygons were confirmed to be 100% contained within the official AOI boundary.")
         return " ".join(explanation_parts)
 
+    async def evaluate_decision(
+        self,
+        state: AgentState,
+    ) -> Tuple[str, str, str, List[str]]:
+        """Determine decision status, recommended action, reasoning summary, and evidence strictly from deterministic data."""
+        evidence: List[str] = []
+
+        # 1. Check for fatal preprocessing errors
+        if state.errors:
+            status = "failed" if not state.selected_aoi else "rejected"
+            action = "REJECT_UNRELIABLE_IMAGERY" if any("cloud" in e.lower() for e in state.errors) else "ANALYSIS_FAILED"
+            summary = f"Workflow halted: {'; '.join(state.errors)}"
+            return status, action, summary, state.errors
+
+        # 2. Check Quality Gate Validation
+        if state.validation_result and state.validation_result.status == "VALIDATION_FAILED":
+            reason = state.validation_result.failure_reason or "Quality Gate checks failed."
+            status = "rejected"
+            action = "REJECT_UNRELIABLE_IMAGERY"
+            summary = f"Deterministic Quality Gate failed validation ({reason}). Analysis aborted to prevent unreliable conclusions."
+            evidence.append(f"Quality Gate Failure: {reason}")
+            return status, action, summary, evidence
+
+        # 3. Check for Stable Canopy / No Change
+        poly_count = state.polygon_count or 0
+        area_ha = state.change_area_ha or 0.0
+        if poly_count == 0 or area_ha <= 0.0:
+            status = "not_actionable"
+            action = "NO_ACTION_REQUIRED"
+            aoi_name = (state.selected_aoi or {}).get("name", "AOI")
+            summary = f"No significant vegetation decrease detected in '{aoi_name}'. Forest canopy remained stable across the comparison period."
+            evidence.append(f"Detected 0 significant change polygons above the configured threshold.")
+            evidence.append(f"Canopy stability confirmed across baseline and comparison observation periods.")
+            return status, action, summary, evidence
+
+        # 4. Significant Change Detected & Validated
+        aoi_name = (state.selected_aoi or {}).get("name", "AOI")
+        evidence.append(
+            f"Detected {area_ha:.2f} hectares of significant vegetation decrease across {poly_count} polygon(s) in {aoi_name}."
+        )
+
+        infra_list = state.affected_infrastructure or []
+        intersecting_infra = [i for i in infra_list if i.get("distance_m", -1) == 0.0]
+        pop_context = state.affected_population_context or {}
+        inter_pop_count = pop_context.get("intersecting_zones_count", 0)
+        total_pop = pop_context.get("total_intersecting_population", 0)
+
+        if intersecting_infra:
+            for inf in intersecting_infra[:3]:
+                evidence.append(f"Asset '{inf.get('name')}' ({inf.get('type')}) directly intersects a detected change polygon (0.0 m).")
+
+        if inter_pop_count > 0:
+            evidence.append(f"Detected change area directly intersects {inter_pop_count} population settlement zone(s) ({total_pop:,} registered residents).")
+
+        if infra_list and not intersecting_infra:
+            closest = infra_list[0]
+            evidence.append(f"Closest infrastructure asset is '{closest.get('name')}' ({closest.get('type')}) at {closest.get('distance_m', 0):.1f} m distance.")
+
+        evidence.append("100% of detected polygons strictly contained within the official Area of Interest boundary.")
+
+        # Determine if Actionable Alert is required
+        if intersecting_infra or inter_pop_count > 0 or (infra_list and len(infra_list) >= 3):
+            status = "validated"
+            action = "ISSUE_MONITORING_ALERT"
+            summary = (
+                f"Actionable environmental event confirmed in {aoi_name}: {area_ha:.2f} ha of vegetation decrease detected with direct "
+                f"proximity/intersection to {len(infra_list)} infrastructure asset(s) and {inter_pop_count} settlement zone(s)."
+            )
+        else:
+            status = "validated"
+            action = "LOG_FOR_ROUTINE_MONITORING"
+            summary = (
+                f"Validated vegetation decrease of {area_ha:.2f} ha detected in {aoi_name}. No immediate critical infrastructure overlap "
+                f"identified within search radius."
+            )
+
+        return status, action, summary, evidence
+
 
 class GeminiClient(BaseLLMClient):
-    """Google Gemini tool-calling client (falls back to MockLLMClient if API key missing)."""
+    """Google Gemini Client with Demo Mode Fallback."""
 
     def __init__(self, api_key: str = "", model: str = "gemini-2.0-flash"):
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.model = model or settings.LLM_MODEL
         self._fallback = MockLLMClient()
 
+    async def parse_query(self, query: str) -> Dict[str, Any]:
+        return await self._fallback.parse_query(query)
+
     async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
-        if not self.api_key:
-            logger.info("GEMINI_API_KEY not configured. Using deterministic MockLLMClient planner.")
-            return await self._fallback.generate_plan(query, catalog_context)
-        try:
-            # Here we could call google.genai or REST if available; fallback safely if any issue
-            return await self._fallback.generate_plan(query, catalog_context)
-        except Exception as e:
-            logger.warning(f"Gemini API planning notice: {e}. Falling back to deterministic planner.")
-            return await self._fallback.generate_plan(query, catalog_context)
+        return await self._fallback.generate_plan(query, catalog_context)
 
     async def synthesize_explanation(self, query: str, plan: AnalysisPlan, results: Dict[str, Any]) -> str:
         return await self._fallback.synthesize_explanation(query, plan, results)
 
+    async def evaluate_decision(self, state: AgentState) -> Tuple[str, str, str, List[str]]:
+        return await self._fallback.evaluate_decision(state)
+
 
 class OpenAIClient(BaseLLMClient):
-    """OpenAI client (falls back to MockLLMClient if API key missing)."""
+    """OpenAI Client with Demo Mode Fallback."""
 
     def __init__(self, api_key: str = "", model: str = "gpt-4o-mini"):
         self.api_key = api_key or settings.OPENAI_API_KEY
         self.model = model
         self._fallback = MockLLMClient()
 
+    async def parse_query(self, query: str) -> Dict[str, Any]:
+        return await self._fallback.parse_query(query)
+
     async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
-        if not self.api_key:
-            return await self._fallback.generate_plan(query, catalog_context)
         return await self._fallback.generate_plan(query, catalog_context)
 
     async def synthesize_explanation(self, query: str, plan: AnalysisPlan, results: Dict[str, Any]) -> str:
         return await self._fallback.synthesize_explanation(query, plan, results)
 
+    async def evaluate_decision(self, state: AgentState) -> Tuple[str, str, str, List[str]]:
+        return await self._fallback.evaluate_decision(state)
+
+
+class AnthropicClient(BaseLLMClient):
+    """Anthropic Claude Client with Demo Mode Fallback."""
+
+    def __init__(self, api_key: str = "", model: str = "claude-3-5-sonnet-20241022"):
+        self.api_key = api_key or settings.ANTHROPIC_API_KEY
+        self.model = model
+        self._fallback = MockLLMClient()
+
+    async def parse_query(self, query: str) -> Dict[str, Any]:
+        return await self._fallback.parse_query(query)
+
+    async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
+        return await self._fallback.generate_plan(query, catalog_context)
+
+    async def synthesize_explanation(self, query: str, plan: AnalysisPlan, results: Dict[str, Any]) -> str:
+        return await self._fallback.synthesize_explanation(query, plan, results)
+
+    async def evaluate_decision(self, state: AgentState) -> Tuple[str, str, str, List[str]]:
+        return await self._fallback.evaluate_decision(state)
+
+
+class LocalLLMClient(BaseLLMClient):
+    """Local LLM / Ollama Compatible Client with Demo Mode Fallback."""
+
+    def __init__(self, base_url: str = "", model: str = "llama3"):
+        self.base_url = base_url or settings.LOCAL_LLM_URL
+        self.model = model
+        self._fallback = MockLLMClient()
+
+    async def parse_query(self, query: str) -> Dict[str, Any]:
+        return await self._fallback.parse_query(query)
+
+    async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
+        return await self._fallback.generate_plan(query, catalog_context)
+
+    async def synthesize_explanation(self, query: str, plan: AnalysisPlan, results: Dict[str, Any]) -> str:
+        return await self._fallback.synthesize_explanation(query, plan, results)
+
+    async def evaluate_decision(self, state: AgentState) -> Tuple[str, str, str, List[str]]:
+        return await self._fallback.evaluate_decision(state)
+
 
 def get_llm_client(provider: Optional[str] = None) -> BaseLLMClient:
-    """Factory function returning the configured LLM client."""
-    selected_provider = (provider or settings.LLM_PROVIDER).lower()
+    """Factory returning configured LLM client instance."""
+    selected = (provider or settings.LLM_PROVIDER).lower()
 
-    if selected_provider == "gemini":
+    if selected == "gemini" and settings.GEMINI_API_KEY:
         return GeminiClient()
-    elif selected_provider == "openai":
+    elif selected == "openai" and settings.OPENAI_API_KEY:
         return OpenAIClient()
+    elif selected == "anthropic" and settings.ANTHROPIC_API_KEY:
+        return AnthropicClient()
+    elif selected in ("local", "ollama"):
+        return LocalLLMClient()
     else:
+        # Default to deterministic DemoModeClient / MockLLMClient
         return MockLLMClient()

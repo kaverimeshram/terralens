@@ -118,3 +118,27 @@ export async function fetchAnalysisPopulationContext(
   }
   return res.json();
 }
+
+export async function runAgentAnalyze(payload: {
+  request: string;
+  llm_provider?: string;
+  proximity_radius_m?: number;
+  threshold?: number;
+}): Promise<any> {
+  const res = await fetch(`${API_BASE}/agent/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(errorData.detail || `Agent Analysis failed: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function fetchAgentHealth(): Promise<any> {
+  const res = await fetch(`${API_BASE}/agent/health`);
+  if (!res.ok) throw new Error(`Agent healthcheck failed: ${res.statusText}`);
+  return res.json();
+}

@@ -200,3 +200,72 @@ export interface HealthStatus {
   };
   gis_capabilities: Record<string, any>;
 }
+
+// --- Phase 4 AI Agent Types ---
+
+export interface AgentActivityLogItem {
+  step: number | string;
+  tool?: string;
+  status: string;
+  summary: string;
+  timestamp: string;
+  details?: Record<string, any>;
+}
+
+export interface GateCheckDetail {
+  gate_name: string;
+  status: "PASSED" | "FAILED";
+  description: string;
+  value?: any;
+  threshold?: any;
+}
+
+export interface ValidationSummary {
+  passed: boolean;
+  reasons: string[];
+  checks: GateCheckDetail[];
+}
+
+export interface AgentAnalyzeResponse {
+  status: "validated" | "detected" | "rejected" | "not_actionable" | "failed";
+  aoi?: string;
+  aoi_id?: string;
+  analysis_id?: string;
+  analysis_period: {
+    before?: string;
+    after?: string;
+  };
+  change: {
+    area_ha: number;
+    mean_ndvi_change: number;
+    polygon_count: number;
+  };
+  spatial_impact: {
+    infrastructure_count: number;
+    population_context: {
+      population_zones_count?: number;
+      intersecting_zones_count?: number;
+      total_intersecting_population?: number;
+      zones?: PopulationZoneItem[];
+      factual_summary?: string[];
+    };
+    infrastructure?: NearbyInfrastructureItem[];
+  };
+  validation: ValidationSummary;
+  recommended_action: string;
+  evidence: string[];
+  orchestration_mode: string;
+  reasoning_summary: string;
+  activity_log: AgentActivityLogItem[];
+  executed_at: string;
+}
+
+export interface AgentHealthStatus {
+  status: string;
+  agent_layer: string;
+  configured_llm_provider: string;
+  is_demo_mode: boolean;
+  registered_tools_count: number;
+  tools: string[];
+  database_connected: boolean;
+}

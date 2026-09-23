@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, ConfigDict
 
@@ -30,10 +30,12 @@ class Settings(BaseSettings):
         description="Async PostgreSQL connection string for FastAPI endpoints",
     )
 
-    # AI Agent Provider (gemini or openai)
+    # AI Agent Provider (gemini, openai, anthropic, local, demo, mock)
     LLM_PROVIDER: str = "gemini"
     GEMINI_API_KEY: str = ""
     OPENAI_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""
+    LOCAL_LLM_URL: str = "http://localhost:11434/v1"
     LLM_MODEL: str = "gemini-2.0-flash"
 
     # Geospatial Thresholds & Parameters
