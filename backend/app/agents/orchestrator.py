@@ -54,6 +54,18 @@ class AgentOrchestrator:
         is_demo = getattr(client, "api_key", None) == "" or client.__class__.__name__ == "MockLLMClient"
         orch_mode = "deterministic_demo" if is_demo else "llm"
 
+        # Input validation
+        if not request or not isinstance(request, str) or len(request.strip()) < 3:
+            s = AgentState(user_request=request or "", orchestration_mode=orch_mode)
+            s.errors.append("Invalid query: Query string must contain at least 3 non-whitespace characters.")
+            return cls._build_early_exit_response(
+                s,
+                [AgentActivityLogItem(step=1, tool="request_parser", status="FAILED", summary="Invalid query length")],
+                status="failed",
+                action="REJECT_MALFORMED_QUERY",
+                reasoning="Natural language query must contain at least 3 non-whitespace characters.",
+            )
+
         state = AgentState(
             user_request=request,
             orchestration_mode=orch_mode,
@@ -135,6 +147,7 @@ class AgentOrchestrator:
                 "before_year": before_year,
                 "after_year": after_year,
                 "max_cloud_cover": 20.0,
+                "prefer_scene_tag": parsed_params.get("prefer_scene_tag"),
             },
             db=db,
         )

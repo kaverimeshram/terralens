@@ -71,7 +71,7 @@ export default function App() {
 
   // Phase 4 Agent State
   const [agentQuery, setAgentQuery] = useState<string>(
-    "Analyze vegetation change in Eastern Mau Forest between 2020 and 2025 and find nearby infrastructure within 1000m"
+    "Analyze vegetation change in Eastern Mau Forest from 2020 to 2025 and identify affected infrastructure."
   );
   const [isAgentExecuting, setIsAgentExecuting] = useState<boolean>(false);
   const [agentResponse, setAgentResponse] = useState<AgentAnalyzeResponse | null>(null);
@@ -484,7 +484,7 @@ export default function App() {
   const promptPresets = [
     {
       title: "Mau Forest 2020-2025: Disturbance & Infrastructure",
-      query: "Analyze vegetation change in Eastern Mau Forest between 2020 and 2025 and find nearby infrastructure within 1000m",
+      query: "Analyze vegetation change in Eastern Mau Forest from 2020 to 2025 and identify affected infrastructure.",
     },
     {
       title: "Harz National Park 2019-2024: Bark Beetle Dieback",
@@ -839,11 +839,90 @@ export default function App() {
                   )}
                 </button>
 
+                {/* 7-Step Workflow Pipeline Visualization */}
+                {(isAgentExecuting || agentResponse) && (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      padding: "12px",
+                      borderRadius: "8px",
+                      backgroundColor: "var(--bg-base)",
+                      border: "1px solid var(--border-color)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "6px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <Terminal size={13} color="var(--accent-cyan)" />
+                        7-Step Controlled Agent Workflow
+                      </div>
+                      <span style={{ fontSize: "10px", color: isAgentExecuting ? "var(--accent-cyan)" : "var(--accent-emerald)", fontWeight: 700 }}>
+                        {isAgentExecuting ? "EXECUTING PIPELINE..." : "WORKFLOW COMPLETE"}
+                      </span>
+                    </div>
+
+                    {/* Pipeline Steps Tracker */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      {[
+                        { stepNum: 1, name: "1. Request Submitted", desc: "Natural language intent parsing & parameter extraction" },
+                        { stepNum: 2, name: "2. AOI Resolved", desc: agentResponse?.aoi ? `Resolved Area of Interest: ${agentResponse.aoi}` : "Resolve official geographic boundary & catalog ID" },
+                        { stepNum: 3, name: "3. Scenes Selected", desc: agentResponse?.analysis_period?.before ? `Selected Sentinel-2 scenes: ${agentResponse.analysis_period.before} -> ${agentResponse.analysis_period.after}` : "Query & filter Sentinel-2 multispectral scenes" },
+                        { stepNum: 4, name: "4. NDVI Analysis Running", desc: agentResponse?.change ? `Band algebra complete: ${agentResponse.change.area_ha.toFixed(2)} ha in ${agentResponse.change.polygon_count} polygon(s)` : "Deterministic band algebra & PostGIS vectorization" },
+                        { stepNum: 5, name: "5. Validation Gate", desc: agentResponse?.validation ? (agentResponse.validation.passed ? "Passed quality checks (6/6 validated)" : "Quality gate check failed") : "Cloud cover, radiometric delta & containment checks" },
+                        { stepNum: 6, name: "6. Spatial Impact Analysis", desc: agentResponse?.spatial_impact ? `PostGIS Proximity: ${agentResponse.spatial_impact.infrastructure_count} asset(s), ${(agentResponse.spatial_impact.population_context?.total_intersecting_population || 0).toLocaleString()} residents` : "ST_DWithin proximity & demographic overlap" },
+                        { stepNum: 7, name: "7. Final Result & Action", desc: agentResponse ? `Directive: ${agentResponse.recommended_action}` : "Synthesize objective non-causal decision" },
+                      ].map((s) => {
+                        const logMatch = (agentResponse?.activity_log || []).find((l) => l.step === s.stepNum || (typeof l.step === "number" && l.step === s.stepNum));
+                        const isDone = !isAgentExecuting && agentResponse !== null;
+                        const isFailed = logMatch?.status === "FAILED" || logMatch?.status === "VALIDATION_FAILED" || (isDone && agentResponse?.status === "rejected" && (s.stepNum === 2 || s.stepNum === 3 || s.stepNum === 5));
+                        const isStepPassed = isDone && !isFailed;
+
+                        return (
+                          <div
+                            key={s.stepNum}
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: "8px",
+                              fontSize: "11px",
+                              padding: "6px 8px",
+                              borderRadius: "4px",
+                              backgroundColor: isStepPassed ? "rgba(16, 185, 129, 0.06)" : isFailed ? "rgba(244, 63, 94, 0.08)" : "var(--bg-surface)",
+                              border: isStepPassed ? "1px solid rgba(16, 185, 129, 0.2)" : isFailed ? "1px solid rgba(244, 63, 94, 0.3)" : "1px solid var(--border-color)",
+                            }}
+                          >
+                            <div style={{ marginTop: "1px", flexShrink: 0 }}>
+                              {isAgentExecuting ? (
+                                <Activity size={12} className="animate-spin" color="var(--accent-cyan)" />
+                              ) : isStepPassed ? (
+                                <CheckCircle2 size={12} color="var(--accent-emerald)" />
+                              ) : isFailed ? (
+                                <XCircle size={12} color="var(--accent-rose)" />
+                              ) : (
+                                <div style={{ width: "12px", height: "12px", borderRadius: "50%", border: "1px solid var(--text-muted)" }} />
+                              )}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontWeight: 700, color: isStepPassed ? "var(--accent-emerald)" : isFailed ? "var(--accent-rose)" : "var(--text-primary)", fontSize: "11px" }}>
+                                {s.name}
+                              </div>
+                              <div style={{ fontSize: "10px", color: "var(--text-muted)" }}>
+                                {logMatch?.summary || s.desc}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Agent Structured Response Section */}
                 {agentResponse && (
                   <div
                     style={{
-                      marginTop: "8px",
+                      marginTop: "4px",
                       display: "flex",
                       flexDirection: "column",
                       gap: "12px",
@@ -853,7 +932,7 @@ export default function App() {
                       border: "1px solid var(--border-color)",
                     }}
                   >
-                    {/* Header: Status & Recommended Action */}
+                    {/* Header: Status & Mode */}
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span
                         style={{
@@ -874,13 +953,12 @@ export default function App() {
                               : agentResponse.status === "not_actionable"
                               ? "var(--text-muted)"
                               : "var(--accent-rose)",
-                          border: `1px solid ${
+                          border:
                             agentResponse.status === "validated"
-                              ? "var(--accent-emerald)"
+                              ? "1px solid var(--accent-emerald)"
                               : agentResponse.status === "not_actionable"
-                              ? "var(--text-muted)"
-                              : "var(--accent-rose)"
-                          }`,
+                              ? "1px solid var(--text-muted)"
+                              : "1px solid var(--accent-rose)",
                         }}
                       >
                         STATUS: {agentResponse.status.toUpperCase()}
@@ -954,10 +1032,55 @@ export default function App() {
                       <div style={{ padding: "8px", borderRadius: "4px", backgroundColor: "var(--bg-surface)" }}>
                         <div style={{ color: "var(--text-muted)" }}>Intersecting Population</div>
                         <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--accent-indigo)" }}>
-                          {(agentResponse.spatial_impact.population_context.total_intersecting_population || 0).toLocaleString()}
+                          {(agentResponse.spatial_impact.population_context?.total_intersecting_population || 0).toLocaleString()}
                         </div>
                       </div>
                     </div>
+
+                    {/* Affected Infrastructure List */}
+                    {(agentResponse.spatial_impact.infrastructure || []).length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <MapPin size={13} color="var(--accent-cyan)" />
+                          Affected Infrastructure Assets ({agentResponse.spatial_impact.infrastructure?.length || 0}):
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px", maxHeight: "150px", overflowY: "auto" }}>
+                          {(agentResponse.spatial_impact.infrastructure || []).map((inf: any, idx: number) => (
+                            <div
+                              key={idx}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                padding: "6px 8px",
+                                borderRadius: "4px",
+                                backgroundColor: "var(--bg-surface)",
+                                border: "1px solid var(--border-color)",
+                                fontSize: "10px",
+                              }}
+                            >
+                              <div>
+                                <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{inf.name}</div>
+                                <div style={{ color: "var(--text-muted)" }}>{inf.type}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <span
+                                  style={{
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontWeight: 700,
+                                    backgroundColor: inf.distance_m === 0 ? "rgba(244, 63, 94, 0.2)" : "rgba(6, 182, 212, 0.2)",
+                                    color: inf.distance_m === 0 ? "var(--accent-rose)" : "var(--accent-cyan)",
+                                  }}
+                                >
+                                  {inf.distance_m === 0 ? "Direct Intersection (0m)" : `${inf.distance_m.toFixed(0)}m`}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Quality Gate Checks Breakdown */}
                     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -1045,8 +1168,7 @@ export default function App() {
                 )}
               </div>
             )}
-
-            {/* TAB 2: Deterministic NDVI GIS Panel */}
+{/* TAB 2: Deterministic NDVI GIS Panel */}
             {activeTab === "analysis" && (
               <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
                 {/* AOI Selector */}

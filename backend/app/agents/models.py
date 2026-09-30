@@ -164,10 +164,10 @@ class AgentState(BaseModel):
 
 class AgentAnalyzeRequest(BaseModel):
     """Incoming request payload for POST /api/agent/analyze."""
-    request: str = Field(..., min_length=3, description="Natural language environmental monitoring query")
+    request: str = Field(..., min_length=3, max_length=2000, description="Natural language environmental monitoring query")
     llm_provider: Optional[str] = Field(None, description="LLM provider: gemini, openai, anthropic, local, or mock")
-    proximity_radius_m: Optional[float] = Field(1000.0, description="Spatial search radius for infrastructure proximity in meters")
-    threshold: Optional[float] = Field(-0.20, description="NDVI decrease change threshold")
+    proximity_radius_m: Optional[float] = Field(1000.0, ge=1.0, le=50000.0, description="Spatial search radius for infrastructure proximity in meters")
+    threshold: Optional[float] = Field(-0.20, ge=-1.0, le=0.0, description="NDVI decrease change threshold")
 
 
 class AgentAnalyzeResponse(BaseModel):

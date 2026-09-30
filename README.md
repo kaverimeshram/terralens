@@ -211,6 +211,214 @@ All quantitative values are computed deterministically by NumPy, Rasterio, PyPro
 
 ---
 
+# Phase 5 — Agent Reliability & End-to-End Demo
+
+TerraLens Phase 5 elevates the AI agent orchestrator into a robust, deterministic, end-to-end environmental intelligence workflow ready for hackathon demonstrations and operational decision support.
+
+```
+User natural-language request
+        ↓
+TerraLens Agent (Request Parser)
+        ↓
+Resolve AOI (Boundary & Catalog ID)
+        ↓
+Resolve Before/After Scenes (Sentinel-2 MSI)
+        ↓
+Run Deterministic NDVI Analysis (Band Algebra & Vectorization)
+        ↓
+Validation Gate (Cloud Cover, Radiometric Delta, Noise, Containment)
+        ↓
+PostGIS Spatial Impact Analysis (ST_DWithin Infrastructure & Demographics)
+        ↓
+Objective Decision & Recommended Action (Evidence-Based Synthesis)
+        ↓
+Map Visualization (MapLibre GL Vector Layers & Interactive Inspection)
+```
+
+---
+
+## 🎯 End-to-End Demo Scenario
+
+**Primary Demonstration Request**:
+> *"Analyze vegetation change in Eastern Mau Forest from 2020 to 2025 and identify affected infrastructure."*
+
+**Execution Flow**:
+1. **Request Ingestion**: Extracts geographic entity (`Eastern Mau Forest Reserve`), temporal bounds (`2020` baseline to `2025` comparison), proximity radius (`1000m`), and threshold (`-0.20`).
+2. **AOI Resolution**: Queries PostgreSQL catalog for official boundary polygon and geodesic area (34,188.75 ha).
+3. **Multispectral Scene Selection**: Resolves baseline scene `S2B_MSIL2A_20200115_T36MZE` (3.2% cloud) and comparison scene `S2A_MSIL2A_20250120_T36MZE` (4.8% cloud).
+4. **Deterministic NDVI Analysis**: Computes pixel-by-pixel band difference $((NIR - Red) / (NIR + Red))$, thresholds at $\Delta \le -0.20$, polygonizes clusters $\ge 500	ext{ m}^2$, yielding **881.84 ha** across **3 distinct polygons**.
+5. **Quality Gate Validation**: Evaluates 6 deterministic checks (AOI Existence, Scene Alignment, Cloud Cover $\le 20\%$, Mean Polygon $\Delta	ext{NDVI} = -0.7307$, Noise Suppression, and 100% AOI Containment).
+6. **Spatial Impact Analytics**: Executes PostGIS `ST_DWithin` and demographic intersections, identifying **5 nearby infrastructure assets** (including direct intersections at $0.0	ext{ m}$ for Likia Forest Outpost, Nessuit Access Track, and Enapuiyapui Water Facility) and **2 settlement zones** with **7,300 residents**.
+7. **Objective Decision**: Synthesizes verified evidence, issuing `ISSUE_MONITORING_ALERT` without LLM hallucinations.
+
+---
+
+## ⚙️ Deterministic Demo Mode
+
+TerraLens guarantees **100% deterministic operation without requiring external LLM API keys**.
+- When no API keys (`GEMINI_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`) are present, the agent operates in `deterministic_demo` mode using regex parameter extraction and deterministic rule engines.
+- **Zero Hallucinations**: All surface areas, NDVI values, polygon counts, distances, and resident counts are computed by NumPy, Rasterio, and PostGIS. The agent never invents satellite or GIS metrics.
+
+---
+
+## 🛡️ Deterministic Quality Gate
+
+Before any spatial impact analysis or alerting occurs, results must pass the deterministic quality gate:
+
+| Gate Check | Threshold / Requirement | Purpose |
+|---|---|---|
+| **AOI_EXISTENCE_GATE** | Valid PostGIS polygon | Verifies target geometry exists in the catalog. |
+| **SCENE_AOI_ALIGNMENT_GATE** | Foreign key match | Ensures both satellite scenes cover the designated AOI. |
+| **CLOUD_COVER_GATE** | $\le 20.0\%$ cloud cover | Rejects unreliable or heavily occluded imagery. |
+| **RADIOMETRIC_DELTA_GATE** | Mean polygon $\Delta	ext{NDVI} \le -0.20$ | Validates that detected decrease is physically significant. |
+| **NOISE_SUPPRESSION_GATE** | $\ge 500	ext{ m}^2$ per polygon | Filters out single-pixel sensor noise and speckle. |
+| **AOI_CONTAINMENT_GATE** | Ratio $= 1.0$ (100% within AOI) | Ensures no spillover beyond official reserve boundaries. |
+
+---
+
+## 🗺️ PostGIS Spatial Impact Analysis
+
+Spatial intelligence is computed directly within PostgreSQL/PostGIS:
+- `ST_DWithin(geom::geography, infra.geometry::geography, radius_m)`
+- `ST_Distance(geom::geography, infra.geometry::geography)`
+- `ST_Intersects(geom, pop_zones.geometry)`
+
+---
+
+## 🔌 API Reference
+
+### `POST /api/agent/analyze`
+**Request**:
+```json
+{
+  "request": "Analyze vegetation change in Eastern Mau Forest from 2020 to 2025 and identify affected infrastructure.",
+  "proximity_radius_m": 1000.0,
+  "threshold": -0.20
+}
+```
+
+**Response**:
+```json
+{
+  "status": "validated",
+  "aoi": "Eastern Mau Forest Reserve",
+  "aoi_id": "a0000000-0000-0000-0000-000000000001",
+  "analysis_id": "9beed978-9ff7-4e4d-b57d-b4c17d05b816",
+  "analysis_period": {
+    "before": "2020-01-15",
+    "after": "2025-01-20"
+  },
+  "change": {
+    "area_ha": 881.84,
+    "mean_ndvi_change": -0.0246,
+    "polygon_count": 3
+  },
+  "spatial_impact": {
+    "infrastructure_count": 5,
+    "population_context": {
+      "population_zones_count": 2,
+      "intersecting_zones_count": 2,
+      "total_intersecting_population": 7300
+    },
+    "infrastructure": [
+      {
+        "name": "Enapuiyapui Water Treatment & Intake Facility",
+        "type": "Water Infrastructure",
+        "distance_m": 0.0
+      },
+      {
+        "name": "Likia Forest Outpost",
+        "type": "Ranger Station",
+        "distance_m": 0.0
+      },
+      {
+        "name": "Nessuit Access & Logging Track",
+        "type": "Access Road",
+        "distance_m": 0.0
+      }
+    ]
+  },
+  "validation": {
+    "passed": true,
+    "reasons": [
+      "Both scenes verified with acceptable cloud cover (3.2% and 4.8% <= 20.0%).",
+      "Verified 3 significant change polygon(s) totaling 881.84 ha (mean polygon ΔNDVI: -0.7307 <= -0.20).",
+      "100% of detected change polygons are strictly contained within AOI boundary."
+    ],
+    "checks": [
+      { "gate_name": "AOI_EXISTENCE_GATE", "status": "PASSED" },
+      { "gate_name": "SCENE_AOI_ALIGNMENT_GATE", "status": "PASSED" },
+      { "gate_name": "CLOUD_COVER_GATE", "status": "PASSED" },
+      { "gate_name": "RADIOMETRIC_DELTA_GATE", "status": "PASSED" },
+      { "gate_name": "NOISE_SUPPRESSION_GATE", "status": "PASSED" },
+      { "gate_name": "AOI_CONTAINMENT_GATE", "status": "PASSED" }
+    ]
+  },
+  "recommended_action": "ISSUE_MONITORING_ALERT",
+  "evidence": [
+    "Detected 881.84 hectares of significant vegetation decrease across 3 polygon(s) in Eastern Mau Forest Reserve.",
+    "Asset 'Enapuiyapui Water Treatment & Intake Facility' (Water Infrastructure) directly intersects a detected change polygon (0.0 m).",
+    "Asset 'Likia Forest Outpost' (Ranger Station) directly intersects a detected change polygon (0.0 m).",
+    "Asset 'Nessuit Access & Logging Track' (Access Road) directly intersects a detected change polygon (0.0 m).",
+    "Detected change area directly intersects 2 population settlement zone(s) (7,300 registered residents).",
+    "100% of detected polygons strictly contained within the official Area of Interest boundary."
+  ],
+  "orchestration_mode": "deterministic_demo",
+  "reasoning_summary": "Actionable environmental event confirmed in Eastern Mau Forest Reserve: 881.84 ha of vegetation decrease detected with direct proximity/intersection to 5 infrastructure asset(s) and 2 settlement zone(s).",
+  "activity_log": [
+    { "step": 1, "tool": "request_parser", "status": "COMPLETED", "summary": "Parsed user request" },
+    { "step": 2, "tool": "get_aoi", "status": "COMPLETED", "summary": "Resolved AOI 'Eastern Mau Forest Reserve'" },
+    { "step": 3, "tool": "list_scenes", "status": "COMPLETED", "summary": "Selected scenes: Baseline -> Comparison" },
+    { "step": 4, "tool": "run_ndvi_analysis", "status": "COMPLETED", "summary": "NDVI processing complete: 881.84 ha across 3 polygon(s)" },
+    { "step": 5, "tool": "validate_analysis", "status": "COMPLETED", "summary": "Quality Gate Passed: 6/6 checks validated" },
+    { "step": 6, "tool": "find_nearby_infrastructure", "status": "COMPLETED", "summary": "PostGIS Proximity: Found 5 infrastructure asset(s)" },
+    { "step": 7, "tool": "get_population_context", "status": "COMPLETED", "summary": "Demographic Context: 7,300 residents in intersecting settlement zones" },
+    { "step": 8, "tool": "decision_engine", "status": "COMPLETED", "summary": "Decision: VALIDATED -> Recommended Action: ISSUE_MONITORING_ALERT" }
+  ]
+}
+```
+
+### `GET /api/agent/health`
+**Response**:
+```json
+{
+  "status": "online",
+  "agent_layer": "TerraLens Agent Orchestrator v1.0",
+  "configured_llm_provider": "gemini",
+  "is_demo_mode": true,
+  "registered_tools_count": 15,
+  "tools": [
+    "list_aois",
+    "get_aoi",
+    "list_scenes",
+    "get_satellite_metadata",
+    "run_ndvi_analysis",
+    "run_ndvi_change_pipeline",
+    "validate_analysis",
+    "calculate_change_area",
+    "find_nearby_infrastructure",
+    "get_population_context",
+    "analyze_population_proximity",
+    "get_spatial_intersections",
+    "run_spatial_intersection",
+    "validate_aoi_containment",
+    "get_spatial_summary"
+  ],
+  "database_connected": true
+}
+```
+
+---
+
+## ⚠️ Provenance & Limitations
+
+- **Provenance Statement**: Synthetic Sentinel-2-like remote-sensing simulation data for development and testing.
+- **No Real Imagery Fabrication**: Simulated rasters model realistic spectral reflectance signatures (Level-2A Bottom-Of-Atmosphere) and spatial dimensions matching Copernicus Sentinel-2 specifications, but represent simulated test datasets.
+- **Study Catalogs**: Current development catalogs focus on Eastern Mau Forest Reserve (Kenya) and Harz National Park (Germany).
+- **2D Planar / Geodesic Analysis**: Elevation (DEM) and SAR backscatter fusion are scheduled for future exploration.
+
+---
+
 ## 🧪 Automated Testing
 
 Run the full automated test suite:
@@ -219,12 +427,13 @@ Run the full automated test suite:
 cd /Users/mikasa05/TerraLens && .venv/bin/pytest backend/tests/ -v
 ```
 
-All **72 automated tests** pass across 5 test suites:
+All **84 automated tests** pass across 6 test suites:
 - `test_phase1.py` (8 tests): PostGIS extension, spatial tables, seed data counts, REST endpoints.
 - `test_phase2_gis.py` (15 tests): Safe NDVI band algebra, NoData preservation, geodesic metric area, polygonization.
 - `test_phase3_spatial.py` (19 tests): `ST_DWithin`, `ST_Distance`, `ST_Intersects`, `ST_Within` containment, demographic overlays.
 - `test_phase4_agent.py` (16 tests): Tool allowlist security, parameter validation, planner generation, query resolution.
 - `test_phase4_orchestrator.py` (14 tests): End-to-end natural language inquiries, cloud rejection, stable canopy handling, missing AOI/scenes resilience, and demo mode.
+- `test_phase5_e2e_agent.py` (12 tests): Complete end-to-end Mau Forest demo, robust AOI/scene resolution, missing years/AOI rejection, GIS/DB resilience, and HTTP API schemas.
 
 ---
 

@@ -49,6 +49,7 @@ class ListScenesParams(BaseModel):
     before_year: Optional[int] = Field(None, description="Observation year for baseline scene")
     after_year: Optional[int] = Field(None, description="Observation year for comparison scene")
     max_cloud_cover: Optional[float] = Field(20.0, description="Maximum allowed cloud cover percentage (default: 20%)")
+    prefer_scene_tag: Optional[str] = Field(None, description="Optional scene tag preference (e.g. 'HIGHCLOUD', 'STABLE')")
 
 
 class RunNDVIAnalysisParams(BaseModel):
@@ -292,18 +293,30 @@ async def get_aoi_tool(db: AsyncSession, name: Optional[str] = None, aoi_id: Opt
             """
         )
         res = await db.execute(query, {"id": aoi_id})
+        row = res.fetchone()
     elif name:
+        clean_name = name.strip()
+        # 1. Exact or full wildcard match
         query = text(
             """
             SELECT id, name, description, bounding_box, ST_Area(geometry::geography)/10000.0 as area_ha, ST_AsGeoJSON(geometry) as geojson
             FROM aois WHERE name ILIKE :name_pattern ORDER BY name LIMIT 1;
             """
         )
-        res = await db.execute(query, {"name_pattern": f"%{name}%"})
+        res = await db.execute(query, {"name_pattern": f"%{clean_name}%"})
+        row = res.fetchone()
+
+        # 2. Key token match if full phrase not found
+        if not row:
+            tokens = [t for t in clean_name.split() if len(t) > 2 and t.lower() not in ("the", "forest", "reserve", "park", "national", "dieback", "zone", "area", "in", "for", "and")]
+            for tok in tokens:
+                res = await db.execute(query, {"name_pattern": f"%{tok}%"})
+                row = res.fetchone()
+                if row:
+                    break
     else:
         raise GISValidationError("Either 'name' or 'aoi_id' must be provided")
 
-    row = res.fetchone()
     if not row:
         raise GISValidationError(f"Area of Interest '{name or aoi_id}' not found in catalog")
 
@@ -327,6 +340,7 @@ async def list_scenes_tool(
     before_year: Optional[int] = None,
     after_year: Optional[int] = None,
     max_cloud_cover: float = 20.0,
+    prefer_scene_tag: Optional[str] = None,
 ) -> Dict[str, Any]:
     query = text(
         """
@@ -357,15 +371,30 @@ async def list_scenes_tool(
             }
         )
 
-    # Resolve before scene
-    before_candidates = [s for s in scenes_list if before_year is None or s["year"] == before_year]
-    before_clean = [s for s in before_candidates if "STABLE" not in s["scene_identifier"] and "HIGHCLOUD" not in s["scene_identifier"]]
-    before_scene = before_clean[0] if before_clean else (before_candidates[0] if before_candidates else scenes_list[0])
+    # 1. Check if requested years exist in catalog
+    if before_year is not None and not any(s["year"] == before_year for s in scenes_list):
+        raise GISValidationError(f"No satellite scenes cataloged for AOI '{aoi_id}' in year {before_year}")
 
-    # Resolve after scene
+    if after_year is not None and not any(s["year"] == after_year for s in scenes_list):
+        raise GISValidationError(f"No satellite scenes cataloged for AOI '{aoi_id}' in year {after_year}")
+
+    # 2. Resolve before scene
+    before_candidates = [s for s in scenes_list if before_year is None or s["year"] == before_year]
+    if prefer_scene_tag and any(prefer_scene_tag in s["scene_identifier"] for s in before_candidates):
+        tagged = [s for s in before_candidates if prefer_scene_tag in s["scene_identifier"]]
+        before_scene = tagged[0]
+    else:
+        before_clean = [s for s in before_candidates if "STABLE" not in s["scene_identifier"] and "HIGHCLOUD" not in s["scene_identifier"]]
+        before_scene = sorted(before_clean, key=lambda x: x["cloud_cover"])[0] if before_clean else sorted(before_candidates, key=lambda x: x["cloud_cover"])[0]
+
+    # 3. Resolve after scene
     after_candidates = [s for s in scenes_list if after_year is None or s["year"] == after_year]
-    after_clean = [s for s in after_candidates if "STABLE" not in s["scene_identifier"] and "HIGHCLOUD" not in s["scene_identifier"]]
-    after_scene = after_clean[-1] if after_clean else (after_candidates[-1] if after_candidates else scenes_list[-1])
+    if prefer_scene_tag and any(prefer_scene_tag in s["scene_identifier"] for s in after_candidates):
+        tagged = [s for s in after_candidates if prefer_scene_tag in s["scene_identifier"]]
+        after_scene = tagged[-1]
+    else:
+        after_clean = [s for s in after_candidates if "STABLE" not in s["scene_identifier"] and "HIGHCLOUD" not in s["scene_identifier"]]
+        after_scene = sorted(after_clean, key=lambda x: x["cloud_cover"])[0] if after_clean else sorted(after_candidates, key=lambda x: x["cloud_cover"])[0]
 
     return {
         "aoi_id": str(aoi_id),
@@ -388,6 +417,7 @@ async def get_satellite_metadata_tool(
     before_year: Optional[int] = None,
     after_year: Optional[int] = None,
     max_cloud_cover: float = 20.0,
+    prefer_scene_tag: Optional[str] = None,
 ) -> Dict[str, Any]:
     return await list_scenes_tool(
         db=db,
@@ -395,6 +425,7 @@ async def get_satellite_metadata_tool(
         before_year=before_year,
         after_year=after_year,
         max_cloud_cover=max_cloud_cover,
+        prefer_scene_tag=prefer_scene_tag,
     )
 
 

@@ -67,11 +67,27 @@ class MockLLMClient(BaseLLMClient):
         aoi_name = None
         if "mau" in q_lower or "eastern mau" in q_lower or "kenya" in q_lower:
             aoi_name = "Eastern Mau Forest Reserve"
-        elif "harz" in q_lower or "germany" in q_lower or "national park" in q_lower:
+        elif "harz" in q_lower or "germany" in q_lower or "dieback" in q_lower:
             aoi_name = "Harz National Park"
+        else:
+            # Extract candidate geographic entity via regex
+            patterns = [
+                r"(?:in|for|of|at|around)\s+([A-Za-z0-9\s\-\(\)\.\,']+?)(?:\s+(?:from|between|in\s+\d{4}|during|with|and\s+identify|and\s+find|and\s+evaluate|and\s+check|to|\d{4}|$)|$)",
+                r"(?:analyze|evaluate|detect|assess|monitor)\s+([A-Za-z0-9\s\-\(\)\.\,']+?)(?:\s+(?:from|between|in\s+\d{4}|during|with|and\s+identify|and\s+find|and\s+evaluate|and\s+check|to|\d{4}|$)|$)",
+            ]
+            for pat in patterns:
+                m = re.search(pat, query, re.IGNORECASE)
+                if m:
+                    cand = m.group(1).strip()
+                    cand_cleaned = re.sub(r"^(?:vegetation|forest|canopy|land|cover|change|the|a|an|area|zone|\s)+", "", cand, flags=re.IGNORECASE).strip()
+                    if cand_cleaned and len(cand_cleaned) > 2 and cand_cleaned.lower() not in ("vegetation", "change", "infrastructure"):
+                        aoi_name = cand_cleaned
+                        break
+            if not aoi_name and len(query.strip()) > 3:
+                aoi_name = query.strip()
 
-        # 2. Resolve Year Timeframe (e.g. 2020 to 2025 or 2019 to 2024)
-        years = [int(y) for y in re.findall(r"\b(20\d\d)\b", query)]
+        # 2. Resolve Year Timeframe (e.g. 2020 to 2025, 2019 to 2024, or 1950 to 1955)
+        years = [int(y) for y in re.findall(r"\b((?:19|20)\d\d)\b", query)]
         before_year = None
         after_year = None
 
@@ -80,16 +96,20 @@ class MockLLMClient(BaseLLMClient):
             before_year = years_sorted[0]
             after_year = years_sorted[-1]
         elif len(years) == 1:
+            y = years[0]
             if "harz" in (aoi_name or "").lower():
-                before_year = 2019
-                after_year = years[0] if years[0] > 2019 else 2024
+                before_year = 2019 if y >= 2019 else y
+                after_year = y if y >= 2019 else 2024
             else:
-                before_year = 2020
-                after_year = years[0] if years[0] > 2020 else 2025
+                before_year = 2020 if y >= 2020 else y
+                after_year = y if y >= 2020 else 2025
         else:
-            if aoi_name == "Harz National Park":
+            if aoi_name and "harz" in aoi_name.lower():
                 before_year = 2019
                 after_year = 2024
+            elif aoi_name and "mau" in aoi_name.lower():
+                before_year = 2020
+                after_year = 2025
             else:
                 before_year = 2020
                 after_year = 2025
@@ -111,6 +131,13 @@ class MockLLMClient(BaseLLMClient):
             val = float(thresh_match.group(1))
             threshold = val if val < 0 else -val
 
+        # 5. Scene tag preferences (e.g. HIGHCLOUD or STABLE)
+        prefer_scene_tag = None
+        if "high cloud" in q_lower or "cloudy" in q_lower or "highcloud" in q_lower:
+            prefer_scene_tag = "HIGHCLOUD"
+        elif "stable" in q_lower or "baseline check" in q_lower or "no change" in q_lower:
+            prefer_scene_tag = "STABLE"
+
         return {
             "aoi_name": aoi_name,
             "before_year": before_year,
@@ -119,8 +146,8 @@ class MockLLMClient(BaseLLMClient):
             "threshold": threshold,
             "minimum_area_m2": 500.0,
             "max_cloud_cover": 20.0,
+            "prefer_scene_tag": prefer_scene_tag,
         }
-
     async def generate_plan(self, query: str, catalog_context: Optional[Dict[str, Any]] = None) -> AnalysisPlan:
         params = await self.parse_query(query)
         aoi_name = params["aoi_name"]
